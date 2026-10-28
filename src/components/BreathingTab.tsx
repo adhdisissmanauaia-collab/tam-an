@@ -20,7 +20,8 @@ import {
   Hand,
   Ear,
   Coffee,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle
 } from "lucide-react";
 
 type BreathingPattern = "478" | "box" | "deep";
@@ -66,12 +67,14 @@ export const BreathingTab: React.FC = () => {
   const [selectedMood, setSelectedMood] = useState<MoodType>("calm");
   const [selectedTags, setSelectedTags] = useState<string[]>(["#học_tập"]);
   const [journalSuccessMsg, setJournalSuccessMsg] = useState<string | null>(null);
+  const [journalErrorMsg, setJournalErrorMsg] = useState<string | null>(null);
 
   // Active tool sub-tab
   const [activeTool, setActiveTool] = useState<"breathing" | "grounding" | "journal">("breathing");
 
   // Grounding 5-4-3-2-1 state
   const [groundingStep, setGroundingStep] = useState(0);
+  const [groundingComplete, setGroundingComplete] = useState(false);
 
   // Timer ref
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -185,7 +188,8 @@ export const BreathingTab: React.FC = () => {
 
   const handleAddJournalEntry = () => {
     if (!journalConsent) {
-      alert("Vui lòng đánh dấu đồng ý lưu nhật ký trên thiết bị của bạn trước.");
+      setJournalErrorMsg("Vui lòng đánh dấu vào ô 'Đồng ý lưu trên thiết bị của tôi' ở phía trên trước khi lưu.");
+      setTimeout(() => setJournalErrorMsg(null), 4000);
       return;
     }
     if (!newEntryText.trim()) return;
@@ -482,7 +486,7 @@ export const BreathingTab: React.FC = () => {
                   setGroundingStep((prev) => prev + 1);
                 } else {
                   playSuccessChime();
-                  alert("Chúc mừng em đã hoàn thành bài tập neo đậu giác quan! Cảm xúc của em đã dần ổn định lại rồi đấy.");
+                  setGroundingComplete(true);
                 }
               }}
               className="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
@@ -490,6 +494,24 @@ export const BreathingTab: React.FC = () => {
               {groundingStep === groundingSteps.length - 1 ? "Hoàn tất bài tập" : "Bước tiếp theo →"}
             </button>
           </div>
+
+          {groundingComplete && (
+            <div className="mt-4 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Chúc mừng em đã hoàn thành bài tập neo đậu giác quan! Cảm xúc của em đã dần ổn định lại rồi đấy.</span>
+              </div>
+              <button
+                onClick={() => {
+                  setGroundingComplete(false);
+                  setGroundingStep(0);
+                }}
+                className="ml-3 px-3 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold shrink-0 hover:bg-emerald-700"
+              >
+                Làm lại
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -598,8 +620,15 @@ export const BreathingTab: React.FC = () => {
               />
             </div>
 
+            {journalErrorMsg && (
+              <div className="text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900 flex items-center gap-1.5 animate-in fade-in">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{journalErrorMsg}</span>
+              </div>
+            )}
+
             {journalSuccessMsg && (
-              <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900 flex items-center gap-1.5">
+              <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900 flex items-center gap-1.5 animate-in fade-in">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>{journalSuccessMsg}</span>
               </div>

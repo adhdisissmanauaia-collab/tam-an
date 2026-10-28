@@ -18,7 +18,7 @@ app.use(express.json({ limit: "1mb" }));
 // In-memory rate limiter: max 30 requests per minute per IP
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 35;
+const MAX_REQUESTS_PER_WINDOW = 60;
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -206,7 +206,80 @@ Tâm An chia sẻ cùng bạn cách giải tỏa:
 Bạn có muốn tập dượt thử câu nói với bố mẹ cùng Tâm An không?`;
   }
 
-  // 10. Câu hỏi mở / Đa năng / Bất kỳ chủ đề nào khác
+  // 10. Vật lý (Physics)
+  if (msg.includes("vật lý") || msg.includes("vật lí") || msg.includes("dao động") || msg.includes("con lắc") || msg.includes("sóng cơ") || msg.includes("dòng điện") || msg.includes("thấu kính") || msg.includes("quang học") || msg.includes("lực")) {
+    return `Chào bạn! Để học và giải đề môn Vật lý nhanh, chính xác:
+
+1. **Hiểu rõ bản chất hiện tượng:** Không chỉ nhớ công thức, hãy hình dung hiện tượng (ví dụ: con lắc đi qua vị trí cân bằng thì vận tốc cực đại, gia tốc bằng 0).
+2. **Kỹ thuật vòng tròn lượng giác:** Dùng vòng tròn đa trục để giải nhanh bài toán thời gian, quãng đường trong dao động điều hòa và sóng cơ.
+3. **Đơn vị & Đổi đơn vị:** 80% lỗi sai đáng tiếc là quên đổi cm sang m, ms sang s, hoặc μF sang F. Luôn kiểm tra đơn vị trước khi bấm máy tính.
+
+Bạn đang cần hỗ trợ bài toán hay chuyên đề Vật lý nào? Hãy gửi đề bài cho Tâm An nhé!`;
+  }
+
+  // 11. Hóa học (Chemistry)
+  if (msg.includes("hóa học") || msg.includes("este") || msg.includes("lipit") || msg.includes("kim loại") || msg.includes("axit") || msg.includes("bazo") || msg.includes("peptit") || msg.includes("phản ứng") || msg.includes("bảo toàn")) {
+    return `Chào bạn! Chiến thuật bứt phá điểm số môn Hóa học:
+
+1. **Các định luật bảo toàn bất biến:** Luôn ưu tiên dùng:
+   - *Bảo toàn khối lượng:* Tổng khối lượng chất phản ứng = Tổng khối lượng sản phẩm.
+   - *Bảo toàn electron:* Tổng mol e nhường = Tổng mol e nhận (cực mạnh trong kim loại tác dụng với axit HNO3/H2SO4).
+   - *Bảo toàn nguyên tố:* Đếm số mol nguyên tố trước và sau phản ứng.
+2. **Hóa hữu cơ (Este - Lipit - Cacbohidrat):** Nắm chắc công thức phân tử, đồng phân và các phản ứng thủy phân trong môi trường axit/kiềm.
+3. **Bảng tính tan & Dãy điện hóa:** Thuộc nằm lòng dãy điện hóa kim loại để xác định chiều phản ứng oxi hóa - khử.
+
+Bạn có bài tập Hóa học cụ thể nào cần giải thích phương pháp giải không?`;
+  }
+
+  // 12. Sinh học (Biology)
+  if (msg.includes("sinh học") || msg.includes("gen") || msg.includes("adn") || msg.includes("di truyền") || msg.includes("nhiễm sắc thể") || msg.includes("đột biến") || msg.includes("menđen") || msg.includes("hệ sinh thái")) {
+    return `Chào bạn! Đối với môn Sinh học, đây là cách ôn tập ghi nhớ sâu:
+
+1. **Quy luật di truyền Menđen:** Vẽ sơ đồ lai từng cặp tính trạng riêng rẽ, sau đó nhân tích xác suất lại với nhau thay vì viết cả sơ đồ dài.
+2. **Công thức cốt lõi phần phân tử:** 
+   - Chiều dài gen: L = (N / 2) * 3.4 Å.
+   - Số liên kết hidro: H = 2A + 3G.
+   - Nguyên tắc bổ sung: A liên kết với T (hoặc U), G liên kết với X.
+3. **Hệ sinh thái & Tiến hóa:** Học theo sơ đồ tư duy (chuỗi thức ăn, lưới thức ăn, các bậc dinh dưỡng).
+
+Bạn đang ôn tập phần di truyền hay sinh thái học thế?`;
+  }
+
+  // 13. Lịch sử, Địa lý & GDCD
+  if (msg.includes("lịch sử") || msg.includes("địa lý") || msg.includes("địa lí") || msg.includes("gdcd") || msg.includes("atlat") || msg.includes("chiến dịch") || msg.includes("cách mạng")) {
+    return `Chào bạn! Cách ôn các môn Khoa học Xã hội nhẹ nhàng, nhớ lâu:
+
+1. **Lịch sử theo trục thời gian (Timeline):** Đừng học thuộc lòng từng đoạn văn. Hãy kẻ trục thời gian với các mốc lớn (1930, 1945, 1954, 1975), gắn mỗi mốc với 1 sự kiện mang tính bước ngoặt.
+2. **Khai thác Atlat Địa lý:** Nắm vững cấu trúc từng trang Atlat. Hơn 50% câu hỏi Địa lý có thể tìm thấy đáp án trực tiếp trong Atlat nếu bạn biết cách tra cứu ký hiệu và bảng chú giải.
+3. **GDCD (Giáo dục công dân):** Tập trung vào các quyền tự do cơ bản của công dân và nhận diện các tình huống thực tế qua câu chuyện tình huống.
+
+Bạn đang cần tóm tắt giai đoạn lịch sử hay kỹ năng đọc Atlat nào?`;
+  }
+
+  // 14. Hoảng loạn phòng thi & Run sợ khi nhận đề
+  if (msg.includes("run") || msg.includes("hoảng") || msg.includes("sợ") || msg.includes("quên sạch") || msg.includes("tim đập") || msg.includes("phòng thi") || msg.includes("trắng não")) {
+    return `Tâm An chia sẻ ngay với em cách xử lý khi bị "trắng não" hoặc run sợ trong phòng thi:
+
+1. **Đặt bút xuống ngay lập tức:** Đừng cố đọc đề tiếp khi tim đang đập dồn dập. Nhắm mắt lại trong 30 giây.
+2. **Kỹ thuật thở 4-4:** Hít sâu 4 giây bằng mũi, phồng bụng lên -> Thở ra thật chậm 4 giây bằng miệng. Lặp lại 3 lần để oxy lên não và làm dịu hệ thần kinh giao cảm.
+3. **Uống 1 ngụm nước nhỏ:** Cảm giác nước mát đi qua cổ họng giúp kích hoạt phản xạ nuốt, đưa não bộ thoát khỏi trạng thái hoảng loạn.
+4. **Làm câu dễ nhất trước:** Tìm câu hỏi nhận biết đơn giản nhất để làm trước. Khi đã viết được những dòng đầu tiên, sự tự tin sẽ tự động quay trở lại!
+
+Em hoàn toàn có đủ năng lực, cứ thở đều và làm từng câu một nhé!`;
+  }
+
+  // 15. Sức khỏe, Giấc ngủ & Ăn uống mùa thi
+  if (msg.includes("ngủ") || msg.includes("thức khuya") || msg.includes("đau đầu") || msg.includes("mệt mỏi") || msg.includes("cà phê") || msg.includes("ăn uống")) {
+    return `Chào bạn! Sức khỏe và giấc ngủ là yếu tố quyết định 50% phong độ thi cử:
+
+1. **Ngủ đủ ít nhất 6-7 tiếng mỗi đêm:** Trí nhớ dài hạn chỉ được não bộ củng cố và sắp xếp trong giấc ngủ sâu. Thức trắng đêm sẽ làm giảm 30-40% khả năng tư duy logic ngày hôm sau.
+2. **Thời điểm vàng đi ngủ:** Cố gắng đi ngủ trước 23h30 và dậy sớm lúc 5h30 sáng. Học bài buổi sáng sớm hiệu quả gấp 2 lần học vào nửa đêm.
+3. **Dinh dưỡng bổ não:** Uống đủ 1.5 - 2 lít nước/ngày. Bổ sung trứng, cá, các loại hạt, rau xanh và trái cây giàu vitamin C (cam, táo). Hạn chế lạm dụng nước tăng lực hay cà phê đậm đặc sau 16h chiều.
+
+Hôm nay bạn đã ngủ được mấy tiếng rồi?`;
+  }
+
+  // 16. Câu hỏi mở / Đa năng / Bất kỳ chủ đề nào khác
   return `Chào bạn! Tâm An đã lắng nghe câu hỏi của bạn rồi:
 
 "${userMessage}"
@@ -415,7 +488,7 @@ app.post("/api/chat", async (req: Request, res: Response) => {
     const contents = buildGeminiContents(message, history);
 
     try {
-      const response = await ai.models.generateContent({
+      const callPromise = ai.models.generateContent({
         model: "gemini-3.1-flash-lite",
         contents: contents,
         config: {
@@ -425,6 +498,11 @@ app.post("/api/chat", async (req: Request, res: Response) => {
         }
       });
 
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Gemini API call timed out after 6500ms")), 6500)
+      );
+
+      const response = await Promise.race([callPromise, timeoutPromise]);
       const replyText = response.text || "Tâm An đã lắng nghe bạn. Bạn có muốn chia sẻ thêm không?";
 
       return res.json({
@@ -433,7 +511,7 @@ app.post("/api/chat", async (req: Request, res: Response) => {
         isDemo: false
       });
     } catch (modelErr) {
-      console.warn("Lỗi khi gọi model, chuyển fallback:", modelErr);
+      console.warn("Lỗi hoặc timeout khi gọi model, chuyển fallback ngay lập tức:", modelErr);
       const fallback = generateDemoResponse(message);
       return res.json({
         reply: fallback,

@@ -51,7 +51,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       const saved = localStorage.getItem("taman_chat_history");
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const valid = parsed.filter(
+              (m: any) => m && typeof m.content === "string" && m.content.trim() !== ""
+            );
+            if (valid.length > 0) return valid;
+          }
         } catch {
           // ignore
         }
@@ -80,9 +86,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     "Làm sao khi bị bố mẹ so sánh?"
   ];
 
-  // Save to localStorage
+  // Save to localStorage (only valid non-empty messages)
   useEffect(() => {
-    localStorage.setItem("taman_chat_history", JSON.stringify(messages));
+    try {
+      const valid = messages.filter((m) => m && m.content && m.content.trim() !== "");
+      localStorage.setItem("taman_chat_history", JSON.stringify(valid));
+    } catch {
+      // ignore
+    }
   }, [messages]);
 
   // Scroll to bottom on new messages
@@ -98,8 +109,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   }, [initialPrompt]);
 
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
-
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || input).trim();
     if (!text || isLoading) return;
@@ -113,23 +122,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
     };
 
-    const aiMessageId = "msg-" + (Date.now() + 1) + "-ai";
-    const initialAiMessage: ChatMessage = {
-      id: aiMessageId,
-      role: "model",
-      content: "",
-      timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-      isCrisis: false,
-      isDemo: false
-    };
-
-    setMessages((prev) => [...prev, userMessage, initialAiMessage]);
+    const currentHistory = [...messages, userMessage];
+    setMessages(currentHistory);
     if (!textToSend) setInput("");
     setIsLoading(true);
-    setStreamingMessageId(aiMessageId);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
 
     try {
-      const historyPayload = messages.map((m) => ({
+      const historyPayload = currentHistory.map((m) => ({
         role: m.role,
         content: m.content
       }));
@@ -141,8 +143,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         body: JSON.stringify({
           message: text,
           history: historyPayload
-        })
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         if (res.status === 429) {
@@ -154,61 +159,34 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       const data = await res.json();
       const fullReply = data.reply || "Tâm An đã lắng nghe bạn. Bạn hãy chia sẻ thêm nhé!";
 
-      // Smooth typewriter streaming animation for fast, lively reading experience
-      const words = fullReply.split(" ");
-      let currentWordIdx = 0;
+      const aiMessage: ChatMessage = {
+        id: "msg-" + Date.now() + "-ai",
+        role: "model",
+        content: fullReply,
+        timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        isCrisis: data.isCrisis ?? false,
+        isDemo: data.isDemo ?? false
+      };
 
-      const typeInterval = setInterval(() => {
-        currentWordIdx += 4;
-        if (currentWordIdx >= words.length) {
-          clearInterval(typeInterval);
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === aiMessageId
-                ? {
-                    ...m,
-                    content: fullReply,
-                    isCrisis: data.isCrisis,
-                    isDemo: data.isDemo
-                  }
-                : m
-            )
-          );
-          setIsLoading(false);
-          setStreamingMessageId(null);
-        } else {
-          const partial = words.slice(0, currentWordIdx).join(" ");
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === aiMessageId
-                ? {
-                    ...m,
-                    content: partial,
-                    isCrisis: data.isCrisis,
-                    isDemo: data.isDemo
-                  }
-                : m
-            )
-          );
-        }
-      }, 15);
-    } catch (err: any) {
-      console.error("Chat error:", err);
-      const safeErrorMsg =
-        "Chào bạn! Tâm An đã nhận được câu hỏi. Hệ thống vừa có chút chậm trễ mạng, Tâm An đang ở đây lắng nghe bạn. Bạn hãy gửi lại câu hỏi một lần nữa nhé!";
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === aiMessageId
-            ? {
-                ...m,
-                content: safeErrorMsg,
-                isDemo: true
-              }
-            : m
-        )
-      );
+      setMessages((prev) => [...prev, aiMessage]);
       setIsLoading(false);
-      setStreamingMessageId(null);
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      console.warn("Chat error caught gracefully:", err);
+      const safeErrorMsg =
+        "Chào bạn! Tâm An đã lắng nghe câu hỏi của bạn. Hệ thống vừa có độ trễ kết nối nhỏ, nhưng Tâm An luôn ở đây đồng hành cùng bạn. Bạn hãy gửi lại câu hỏi hoặc chia sẻ thêm chi tiết nhé!";
+      
+      const fallbackAiMessage: ChatMessage = {
+        id: "msg-" + Date.now() + "-ai",
+        role: "model",
+        content: safeErrorMsg,
+        timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        isCrisis: false,
+        isDemo: true
+      };
+
+      setMessages((prev) => [...prev, fallbackAiMessage]);
+      setIsLoading(false);
     } finally {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
@@ -236,7 +214,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   const speakText = (text: string, id: string) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      alert("Trình duyệt của bạn không hỗ trợ đọc giọng nói.");
+      setErrorMessage("Trình duyệt của bạn không hỗ trợ đọc giọng nói.");
       return;
     }
 
@@ -354,26 +332,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </div>
                 )}
 
-                {/* Content formatted with clean line breaks & streaming cursor */}
-                {message.id === streamingMessageId && message.content === "" ? (
-                  <div className="flex items-center gap-2 py-1">
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      Tâm An đang phản hồi ngay...
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.3s]"></span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.15s]"></span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce"></span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="whitespace-pre-wrap break-words">
-                    {message.content}
-                    {message.id === streamingMessageId && (
-                      <span className="inline-block w-1.5 h-4 ml-1 bg-indigo-500 animate-pulse align-middle" />
-                    )}
-                  </div>
-                )}
+                {/* Content formatted with clean line breaks */}
+                <div className="whitespace-pre-wrap break-words">
+                  {message.content}
+                </div>
 
                 {/* Crisis SOS Quick Hotline Button */}
                 {message.isCrisis && (
@@ -438,6 +400,25 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             </div>
           );
         })}
+
+        {/* Real-time Loading Indicator */}
+        {isLoading && (
+          <div className="flex items-start gap-3 flex-row animate-in fade-in duration-200">
+            <div className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 text-xs shadow-sm bg-gradient-to-tr from-sky-400 to-indigo-500 text-white">
+              <Bot className="w-5 h-5" />
+            </div>
+            <div className="rounded-3xl px-5 py-3.5 shadow-sm text-sm bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200/60 dark:border-slate-700/60 rounded-tl-sm flex items-center gap-2.5">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                Tâm An đang soạn câu trả lời...
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce"></span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error notification */}
         {errorMessage && (

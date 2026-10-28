@@ -87,6 +87,7 @@ export const ExamPlannerTab: React.FC = () => {
   const [newTaskSubject, setNewTaskSubject] = useState(subjects[0]?.name || "Toán học");
   const [newTaskMinutes, setNewTaskMinutes] = useState(30);
   const [newTaskPriority, setNewTaskPriority] = useState<"high" | "medium" | "low">("medium");
+  const [planSuccessMsg, setPlanSuccessMsg] = useState<string | null>(null);
 
   // Save to localStorage
   useEffect(() => {
@@ -147,9 +148,16 @@ export const ExamPlannerTab: React.FC = () => {
   const handleDeleteSubject = (id: string) => {
     const subToDelete = subjects.find((s) => s.id === id);
     if (!subToDelete) return;
-    setSubjects(subjects.filter((s) => s.id !== id));
+    const remaining = subjects.filter((s) => s.id !== id);
+    setSubjects(remaining);
     // Also cleanup tasks
     setTasks(tasks.filter((t) => t.subject !== subToDelete.name));
+    if (selectedSubjectFilter === subToDelete.name) {
+      setSelectedSubjectFilter("all");
+    }
+    if (newTaskSubject === subToDelete.name) {
+      setNewTaskSubject(remaining[0]?.name || "");
+    }
   };
 
   const handleAddTask = (e: React.FormEvent) => {
@@ -191,7 +199,8 @@ export const ExamPlannerTab: React.FC = () => {
 
     setTasks((prev) => [...prev, ...generated]);
     playSuccessChime();
-    alert(`Đã tự động chia nhỏ 4 nhiệm vụ ôn tập cho môn ${subjectName}!`);
+    setPlanSuccessMsg(`Đã tự động chia nhỏ 4 nhiệm vụ ôn tập cho môn ${subjectName}!`);
+    setTimeout(() => setPlanSuccessMsg(null), 4000);
   };
 
   const toggleChecklistItem = (id: string) => {
@@ -251,6 +260,22 @@ export const ExamPlannerTab: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Plan Success Toast */}
+      {planSuccessMsg && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{planSuccessMsg}</span>
+          </div>
+          <button
+            onClick={() => setPlanSuccessMsg(null)}
+            className="text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:underline ml-2"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
 
       {/* Section 1: Subjects List */}
       <div className="space-y-4">
