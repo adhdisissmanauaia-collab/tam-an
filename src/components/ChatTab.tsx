@@ -17,6 +17,7 @@ import {
   HelpCircle,
   RefreshCw
 } from "lucide-react";
+import { generateAssistantReply, checkCrisis, getCrisisReply } from "../utils/aiAssistant";
 
 interface ChatTabProps {
   initialPrompt?: string | null;
@@ -127,8 +128,25 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     if (!textToSend) setInput("");
     setIsLoading(true);
 
+    // 1. Kiểm tra an toàn khủng hoảng khẩn cấp ngay lập tức
+    if (checkCrisis(text)) {
+      const crisisReply = getCrisisReply();
+      const aiMessage: ChatMessage = {
+        id: "msg-" + Date.now() + "-ai",
+        role: "model",
+        content: crisisReply,
+        timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        isCrisis: true,
+        isDemo: false
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+      setIsLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 50);
+      return;
+    }
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
       const historyPayload = currentHistory.map((m) => ({
@@ -136,7 +154,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         content: m.content
       }));
 
-      // Call robust backend chat API
+      // Gọi backend chat API
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -149,15 +167,25 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
       clearTimeout(timeoutId);
 
-      if (!res.ok) {
-        if (res.status === 429) {
-          throw new Error("Bạn đang gửi tin nhắn hơi nhanh. Hãy đợi một chút nhé!");
-        }
-        throw new Error("Không thể kết nối đến máy chủ Tâm An.");
+      const contentType = res.headers.get("content-type") || "";
+      if (!res.ok || !contentType.includes("application/json")) {
+        // Backend không trả về JSON hoặc 404/500 -> chuyển sang trợ lý thông minh cục bộ
+        const localResponse = generateAssistantReply(text);
+        const aiMessage: ChatMessage = {
+          id: "msg-" + Date.now() + "-ai",
+          role: "model",
+          content: localResponse.reply,
+          timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+          isCrisis: localResponse.isCrisis,
+          isDemo: true
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+        setIsLoading(false);
+        return;
       }
 
       const data = await res.json();
-      const fullReply = data.reply || "Tâm An đã lắng nghe bạn. Bạn hãy chia sẻ thêm nhé!";
+      const fullReply = data.reply || generateAssistantReply(text).reply;
 
       const aiMessage: ChatMessage = {
         id: "msg-" + Date.now() + "-ai",
@@ -172,16 +200,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       setIsLoading(false);
     } catch (err: any) {
       clearTimeout(timeoutId);
-      console.warn("Chat error caught gracefully:", err);
-      const safeErrorMsg =
-        "Chào bạn! Tâm An đã lắng nghe câu hỏi của bạn. Hệ thống vừa có độ trễ kết nối nhỏ, nhưng Tâm An luôn ở đây đồng hành cùng bạn. Bạn hãy gửi lại câu hỏi hoặc chia sẻ thêm chi tiết nhé!";
+      console.warn("Chuyển sang bộ sinh câu trả lời thông minh dự phòng:", err);
       
+      const localResponse = generateAssistantReply(text);
       const fallbackAiMessage: ChatMessage = {
         id: "msg-" + Date.now() + "-ai",
         role: "model",
-        content: safeErrorMsg,
+        content: localResponse.reply,
         timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-        isCrisis: false,
+        isCrisis: localResponse.isCrisis,
         isDemo: true
       };
 
