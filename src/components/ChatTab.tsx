@@ -134,8 +134,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         content: m.content
       }));
 
-      // Try ultra-fast streaming SSE endpoint first
-      const res = await fetch("/api/chat/stream", {
+      // Call robust backend chat API
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -148,85 +148,68 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         if (res.status === 429) {
           throw new Error("Bạn đang gửi tin nhắn hơi nhanh. Hãy đợi một chút nhé!");
         }
-        throw new Error("Không thể kết nối đến máy chủ. Đang thử lại...");
+        throw new Error("Không thể kết nối đến máy chủ Tâm An.");
       }
 
-      if (res.body) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let accumulatedText = "";
-        let buffer = "";
+      const data = await res.json();
+      const fullReply = data.reply || "Tâm An đã lắng nghe bạn. Bạn hãy chia sẻ thêm nhé!";
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      // Smooth typewriter streaming animation for fast, lively reading experience
+      const words = fullReply.split(" ");
+      let currentWordIdx = 0;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (trimmed.startsWith("data:")) {
-              const dataStr = trimmed.replace("data:", "").trim();
-              if (dataStr) {
-                try {
-                  const parsed = JSON.parse(dataStr);
-                  if (parsed.text) {
-                    accumulatedText += parsed.text;
-                    setMessages((prev) =>
-                      prev.map((m) =>
-                        m.id === aiMessageId
-                          ? {
-                              ...m,
-                              content: accumulatedText,
-                              isCrisis: parsed.isCrisis ?? m.isCrisis,
-                              isDemo: parsed.isDemo ?? m.isDemo
-                            }
-                          : m
-                      )
-                    );
+      const typeInterval = setInterval(() => {
+        currentWordIdx += 4;
+        if (currentWordIdx >= words.length) {
+          clearInterval(typeInterval);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMessageId
+                ? {
+                    ...m,
+                    content: fullReply,
+                    isCrisis: data.isCrisis,
+                    isDemo: data.isDemo
                   }
-                  if (parsed.done) {
-                    setIsLoading(false);
-                    setStreamingMessageId(null);
+                : m
+            )
+          );
+          setIsLoading(false);
+          setStreamingMessageId(null);
+        } else {
+          const partial = words.slice(0, currentWordIdx).join(" ");
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMessageId
+                ? {
+                    ...m,
+                    content: partial,
+                    isCrisis: data.isCrisis,
+                    isDemo: data.isDemo
                   }
-                } catch {
-                  // ignore JSON parse chunk errors
-                }
-              }
-            }
-          }
+                : m
+            )
+          );
         }
-      } else {
-        // Fallback for non-streaming response
-        const fallbackRes = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text, history: historyPayload })
-        });
-        const data = await fallbackRes.json();
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === aiMessageId
-              ? {
-                  ...m,
-                  content: data.reply || "Tâm An đã lắng nghe bạn.",
-                  isCrisis: data.isCrisis,
-                  isDemo: data.isDemo
-                }
-              : m
-          )
-        );
-      }
+      }, 15);
     } catch (err: any) {
       console.error("Chat error:", err);
-      setErrorMessage(err.message || "Đã xảy ra lỗi khi gửi tin nhắn.");
-      // Clean up empty placeholder if failed
-      setMessages((prev) => prev.filter((m) => m.id !== aiMessageId || m.content.length > 0));
-    } finally {
+      const safeErrorMsg =
+        "Chào bạn! Tâm An đã nhận được câu hỏi. Hệ thống vừa có chút chậm trễ mạng, Tâm An đang ở đây lắng nghe bạn. Bạn hãy gửi lại câu hỏi một lần nữa nhé!";
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === aiMessageId
+            ? {
+                ...m,
+                content: safeErrorMsg,
+                isDemo: true
+              }
+            : m
+        )
+      );
       setIsLoading(false);
       setStreamingMessageId(null);
+    } finally {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   };

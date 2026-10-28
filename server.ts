@@ -47,6 +47,7 @@ Bạn sẵn sàng trả lời và giải đáp TẤT CẢ các câu hỏi mà h�
 
 TỐC ĐỘ & PHONG CÁCH TRẢ LỜI:
 - Phản hồi nhanh chóng, trực diện, đúng trọng tâm câu hỏi của học sinh.
+- ĐỘ DÀI: Khoảng 120 - 220 từ (2-3 đoạn ngắn). Trả lời súc tích, đi thẳng vào câu trả lời với 2-3 gạch đầu dòng thiết thực để phản hồi gửi về siêu tốc (1-2 giây).
 - Ngôn từ tiếng Việt gần gũi, dịu dàng, tôn trọng, không phán xét. Xưng hô là "Tâm An" và gọi người dùng là "bạn" hoặc "em".
 - Dùng gạch đầu dòng rõ ràng, định dạng dễ đọc, tránh lý thuyết rườm rà dài dòng.
 - Luôn truyền cảm hứng tích cực, động viên học sinh tự tin vào năng lực bản thân.
@@ -218,17 +219,21 @@ Bạn có muốn tập dượt thử câu nói với bố mẹ cùng Tâm An kh�
 Bạn có thể cung cấp thêm chi tiết hoặc tài liệu liên quan để Tâm An giải thích cặn kẽ và hỗ trợ bạn tốt nhất nhé!`;
 }
 
-// Helper to format messages
+// Helper to format messages for Gemini (Ensures conversation starts with user role)
 function buildGeminiContents(message: string, history: any[]) {
   const contents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
   if (Array.isArray(history)) {
-    for (const item of history.slice(-6)) { // keep last 6 turns to reduce token payload and maximize speed
-      if (item && item.content && (item.role === "user" || item.role === "model")) {
-        contents.push({
-          role: item.role,
-          parts: [{ text: String(item.content) }]
-        });
-      }
+    // Filter and drop leading model messages (e.g. welcome-msg) to strictly respect Gemini role protocol
+    const filtered = history.filter((item) => item && item.content && (item.role === "user" || item.role === "model"));
+    let startIndex = 0;
+    while (startIndex < filtered.length && filtered[startIndex].role === "model") {
+      startIndex++;
+    }
+    for (const item of filtered.slice(startIndex).slice(-6)) {
+      contents.push({
+        role: item.role,
+        parts: [{ text: String(item.content) }]
+      });
     }
   }
   contents.push({
@@ -243,7 +248,7 @@ app.get("/api/status", (_req: Request, res: Response) => {
   const hasKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== "" && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY");
   res.json({
     configured: hasKey,
-    model: "gemini-3.8-flash",
+    model: "gemini-3.1-flash-lite",
     mode: hasKey ? "live" : "demo",
     timestamp: new Date().toISOString()
   });
@@ -284,7 +289,6 @@ app.post("/api/chat/stream", async (req: Request, res: Response) => {
     const isApiKeyValid = apiKey && apiKey.trim() !== "" && apiKey !== "MY_GEMINI_API_KEY";
 
     if (!isApiKeyValid) {
-      // Simulate fast live streaming chunks in demo mode (words stream in rapidly within 300ms)
       const demoReply = generateDemoResponse(message);
       const words = demoReply.split(" ");
       let currentIdx = 0;
@@ -296,7 +300,6 @@ app.post("/api/chat/stream", async (req: Request, res: Response) => {
           res.end();
           return;
         }
-        // Send in batches of 5-6 words every 8ms for lightning-fast responsive streaming
         const batch = words.slice(currentIdx, currentIdx + 6).join(" ") + " ";
         res.write(`data: ${JSON.stringify({ text: batch, isDemo: true })}\n\n`);
         currentIdx += 6;
@@ -306,7 +309,6 @@ app.post("/api/chat/stream", async (req: Request, res: Response) => {
       return;
     }
 
-    // Call Gemini 3.8 Flash with low thinking level for ultra-fast first token
     const ai = new GoogleGenAI({
       apiKey: apiKey,
       httpOptions: {
@@ -318,20 +320,34 @@ app.post("/api/chat/stream", async (req: Request, res: Response) => {
 
     const contents = buildGeminiContents(message, history);
 
-    const responseStream = await ai.models.generateContentStream({
-      model: "gemini-3.8-flash",
-      contents: contents,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }, // Minimizes reasoning latency for fastest response
-        temperature: 0.65,
-        topP: 0.95
-      }
-    });
+    let streamFailed = false;
+    try {
+      const responseStream = await ai.models.generateContentStream({
+        model: "gemini-3.1-flash-lite",
+        contents: contents,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          temperature: 0.65,
+          topP: 0.95
+        }
+      });
 
-    for await (const chunk of responseStream) {
-      if (chunk.text) {
-        res.write(`data: ${JSON.stringify({ text: chunk.text, isDemo: false })}\n\n`);
+      for await (const chunk of responseStream) {
+        if (chunk.text) {
+          res.write(`data: ${JSON.stringify({ text: chunk.text, isDemo: false })}\n\n`);
+        }
+      }
+    } catch (modelErr: any) {
+      console.warn("Lỗi khi stream với gemini-3.1-flash-lite, kích hoạt fallback:", modelErr?.message || modelErr);
+      streamFailed = true;
+    }
+
+    if (streamFailed) {
+      const fallback = generateDemoResponse(message);
+      const words = fallback.split(" ");
+      for (let i = 0; i < words.length; i += 6) {
+        const batch = words.slice(i, i + 6).join(" ") + " ";
+        res.write(`data: ${JSON.stringify({ text: batch, isDemo: true })}\n\n`);
       }
     }
 
@@ -398,24 +414,33 @@ app.post("/api/chat", async (req: Request, res: Response) => {
 
     const contents = buildGeminiContents(message, history);
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.8-flash",
-      contents: contents,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }, // Minimum reasoning latency
-        temperature: 0.65,
-        topP: 0.95
-      }
-    });
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite",
+        contents: contents,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          temperature: 0.65,
+          topP: 0.95
+        }
+      });
 
-    const replyText = response.text || "Tâm An đã lắng nghe bạn. Bạn có muốn chia sẻ thêm không?";
+      const replyText = response.text || "Tâm An đã lắng nghe bạn. Bạn có muốn chia sẻ thêm không?";
 
-    return res.json({
-      reply: replyText,
-      isCrisis: false,
-      isDemo: false
-    });
+      return res.json({
+        reply: replyText,
+        isCrisis: false,
+        isDemo: false
+      });
+    } catch (modelErr) {
+      console.warn("Lỗi khi gọi model, chuyển fallback:", modelErr);
+      const fallback = generateDemoResponse(message);
+      return res.json({
+        reply: fallback,
+        isCrisis: false,
+        isDemo: true
+      });
+    }
   } catch (error: any) {
     console.error("Lỗi khi xử lý chat tại server:", error);
 
