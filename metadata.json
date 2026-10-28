@@ -1,0 +1,6 @@
+{
+  "name": "Tâm An AI - Tư Vấn Tâm Lý Học Đường",
+  "description": "Nền tảng trợ lý AI đồng hành cùng học sinh, tư vấn tâm lý học đường, giải tỏa áp lực thi cử và lập kế hoạch ôn thi an toàn, thân thiện.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
